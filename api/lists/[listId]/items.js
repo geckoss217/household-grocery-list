@@ -36,6 +36,7 @@ export default function handler(req, res) {
 
   try {
     if (req.method === 'POST') {
+      // Add item to list
       const { name, quantity, checked } = req.body;
 
       if (!name || name.trim() === '') {
@@ -62,7 +63,8 @@ export default function handler(req, res) {
       lists[listIndex].items.push(newItem);
       writeLists(lists);
       res.status(201).json(newItem);
-    } else if (req.method === 'PUT' && itemId) {
+    } else if (req.method === 'PUT') {
+      // Update item
       const { name, quantity, checked } = req.body;
 
       const lists = readLists();
@@ -86,7 +88,8 @@ export default function handler(req, res) {
 
       writeLists(lists);
       res.json(lists[listIndex].items[itemIndex]);
-    } else if (req.method === 'DELETE' && itemId) {
+    } else if (req.method === 'DELETE') {
+      // Delete item
       const lists = readLists();
       const listIndex = lists.findIndex((l) => l.id === listId);
 
