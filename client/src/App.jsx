@@ -47,25 +47,39 @@ function App() {
 
   const handleAddItem = (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    
+    if (!input.trim()) {
+      console.warn('Input is empty');
+      return;
+    }
+
+    if (!currentListId) {
+      console.error('No current list selected');
+      return;
+    }
 
     const newItem = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: input,
-      quantity: quantity,
+      id: Date.now().toString(),
+      name: input.trim(),
+      quantity: quantity || '1',
       checked: false,
     };
 
+    console.log('Adding item:', newItem);
+
     const updatedLists = lists.map((list) => {
       if (list.id === currentListId) {
-        return {
+        const updated = {
           ...list,
-          items: [...list.items, newItem],
+          items: [...(list.items || []), newItem],
         };
+        console.log('Updated list:', updated);
+        return updated;
       }
       return list;
     });
 
+    console.log('Updated lists:', updatedLists);
     setLists(updatedLists);
     setInput('');
     setQuantity('1');
