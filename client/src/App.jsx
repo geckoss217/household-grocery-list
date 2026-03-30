@@ -25,7 +25,6 @@ function App() {
 
   const loadLists = () => {
     try {
-      setLoading(true);
       const saved = localStorage.getItem('household-lists');
       if (saved) {
         const data = JSON.parse(saved);
@@ -45,10 +44,10 @@ function App() {
         setCurrentListId(defaultList.id);
       }
       setError(null);
+      setLoading(false);
     } catch (err) {
       setError('Failed to load lists');
       console.error(err);
-    } finally {
       setLoading(false);
     }
   };
