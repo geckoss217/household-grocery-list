@@ -1,0 +1,16 @@
+{
+  "name": "household-grocery-list",
+  "version": "1.0.0",
+  "description": "Simple household grocery list app",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev:client": "cd client && npm start",
+    "dev:server": "cd api && node index.js",
+    "build": "npm run build:client",
+    "build:client": "cd client && npm run build",
+    "start": "node api/index.js"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
