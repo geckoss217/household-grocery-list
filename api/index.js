@@ -20,38 +20,84 @@ app.use(express.static(path.join(__dirname, '../client/build')));
 // Initialize data file
 function initializeDataFile() {
   if (!fs.existsSync(dataFile)) {
-    fs.writeFileSync(dataFile, JSON.stringify([]));
+    // Create a default list
+    const defaultData = [
+      {
+        id: uuidv4(),
+        name: 'Costco',
+        items: [],
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    fs.writeFileSync(dataFile, JSON.stringify(defaultData, null, 2));
   }
 }
 
-// Read items
-function readItems() {
+// Read lists
+function readLists() {
   try {
     const data = fs.readFileSync(dataFile, 'utf8');
     return JSON.parse(data) || [];
   } catch (err) {
-    console.error('Error reading items:', err);
+    console.error('Error reading lists:', err);
     return [];
   }
 }
 
-// Write items
-function writeItems(items) {
+// Write lists
+function writeLists(lists) {
   try {
-    fs.writeFileSync(dataFile, JSON.stringify(items, null, 2));
+    fs.writeFileSync(dataFile, JSON.stringify(lists, null, 2));
   } catch (err) {
-    console.error('Error writing items:', err);
+    console.error('Error writing lists:', err);
   }
 }
 
-// GET /api/items - Get all items
-app.get('/api/items', (req, res) => {
-  const items = readItems();
-  res.json(items);
+// GET /api/lists - Get all lists
+app.get('/api/lists', (req, res) => {
+  const lists = readLists();
+  res.json(lists);
 });
 
-// POST /api/items - Add new item
-app.post('/api/items', (req, res) => {
+// POST /api/lists - Create new list
+app.post('/api/lists', (req, res) => {
+  const { name } = req.body;
+
+  if (!name || name.trim() === '') {
+    return res.status(400).json({ error: 'List name is required' });
+  }
+
+  const newList = {
+    id: uuidv4(),
+    name: name.trim(),
+    items: [],
+    createdAt: new Date().toISOString(),
+  };
+
+  const lists = readLists();
+  lists.push(newList);
+  writeLists(lists);
+
+  res.status(201).json(newList);
+});
+
+// DELETE /api/lists/:listId - Delete list
+app.delete('/api/lists/:listId', (req, res) => {
+  const { listId } = req.params;
+  const lists = readLists();
+  const filtered = lists.filter((l) => l.id !== listId);
+
+  if (filtered.length === lists.length) {
+    return res.status(404).json({ error: 'List not found' });
+  }
+
+  writeLists(filtered);
+  res.status(204).send();
+});
+
+// POST /api/lists/:listId/items - Add item to list
+app.post('/api/lists/:listId/items', (req, res) => {
+  const { listId } = req.params;
   const { name, quantity, checked } = req.body;
 
   if (!name || name.trim() === '') {
@@ -66,44 +112,64 @@ app.post('/api/items', (req, res) => {
     createdAt: new Date().toISOString(),
   };
 
-  const items = readItems();
-  items.push(newItem);
-  writeItems(items);
+  const lists = readLists();
+  const listIndex = lists.findIndex((l) => l.id === listId);
+
+  if (listIndex === -1) {
+    return res.status(404).json({ error: 'List not found' });
+  }
+
+  lists[listIndex].items.push(newItem);
+  writeLists(lists);
 
   res.status(201).json(newItem);
 });
 
-// PUT /api/items/:id - Update item
-app.put('/api/items/:id', (req, res) => {
-  const { id } = req.params;
+// PUT /api/lists/:listId/items/:itemId - Update item
+app.put('/api/lists/:listId/items/:itemId', (req, res) => {
+  const { listId, itemId } = req.params;
   const { name, quantity, checked } = req.body;
 
-  const items = readItems();
-  const itemIndex = items.findIndex((i) => i.id === id);
+  const lists = readLists();
+  const listIndex = lists.findIndex((l) => l.id === listId);
+
+  if (listIndex === -1) {
+    return res.status(404).json({ error: 'List not found' });
+  }
+
+  const itemIndex = lists[listIndex].items.findIndex((i) => i.id === itemId);
 
   if (itemIndex === -1) {
     return res.status(404).json({ error: 'Item not found' });
   }
 
-  if (name !== undefined) items[itemIndex].name = name;
-  if (quantity !== undefined) items[itemIndex].quantity = quantity;
-  if (checked !== undefined) items[itemIndex].checked = checked;
+  if (name !== undefined) lists[listIndex].items[itemIndex].name = name;
+  if (quantity !== undefined) lists[listIndex].items[itemIndex].quantity = quantity;
+  if (checked !== undefined) lists[listIndex].items[itemIndex].checked = checked;
 
-  writeItems(items);
-  res.json(items[itemIndex]);
+  writeLists(lists);
+  res.json(lists[listIndex].items[itemIndex]);
 });
 
-// DELETE /api/items/:id - Delete item
-app.delete('/api/items/:id', (req, res) => {
-  const { id } = req.params;
-  const items = readItems();
-  const filtered = items.filter((i) => i.id !== id);
+// DELETE /api/lists/:listId/items/:itemId - Delete item
+app.delete('/api/lists/:listId/items/:itemId', (req, res) => {
+  const { listId, itemId } = req.params;
 
-  if (filtered.length === items.length) {
+  const lists = readLists();
+  const listIndex = lists.findIndex((l) => l.id === listId);
+
+  if (listIndex === -1) {
+    return res.status(404).json({ error: 'List not found' });
+  }
+
+  const filtered = lists[listIndex].items.filter((i) => i.id !== itemId);
+
+  if (filtered.length === lists[listIndex].items.length) {
     return res.status(404).json({ error: 'Item not found' });
   }
 
-  writeItems(filtered);
+  lists[listIndex].items = filtered;
+  writeLists(lists);
   res.status(204).send();
 });
 
@@ -118,3 +184,4 @@ initializeDataFile();
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+

@@ -64,6 +64,157 @@ body {
   gap: 1.5rem;
 }
 
+/* List Manager / Tabs */
+.list-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 1rem;
+}
+
+.lists-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.list-tab-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.list-tab {
+  padding: 0.6rem 1rem;
+  background: var(--bg-light);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--secondary);
+}
+
+.list-tab:hover {
+  border-color: var(--accent);
+  background: #f0f5ff;
+}
+
+.list-tab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.btn-delete-list {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--secondary);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.btn-delete-list:hover {
+  background: #ffe0e0;
+  color: var(--error);
+}
+
+.create-list-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input-small {
+  flex: 1;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.input-small:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+}
+
+.btn-add-list {
+  padding: 0.6rem 1rem;
+  background: var(--success);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.btn-add-list:hover {
+  background: #227a3d;
+}
+
+/* List Header */
+.list-header {
+  margin-bottom: 1rem;
+}
+
+.list-header h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.list-stats {
+  font-size: 0.9rem;
+  color: var(--secondary);
+}
+
+/* Sort Controls */
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-light);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.sort-controls label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--secondary);
+  white-space: nowrap;
+}
+
+.sort-select {
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  background: white;
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* Form */
 .form {
   display: flex;
@@ -286,4 +437,22 @@ body {
     gap: 0.5rem;
     padding: 0.65rem;
   }
+
+  .lists-tabs {
+    gap: 0.35rem;
+  }
+
+  .list-tab {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .create-list-form {
+    flex-direction: column;
+  }
+
+  .btn-add-list {
+    width: 100%;
+  }
 }
+
