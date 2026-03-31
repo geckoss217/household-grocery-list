@@ -60,16 +60,14 @@ function App() {
         }
 
         // Set up real-time subscriptions
-        const subscription = supabase
+        supabase
           .channel('lists')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'lists' }, (payload) => {
             console.log('List change:', payload);
-            // Reload lists on change
             loadLists();
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, (payload) => {
             console.log('Item change:', payload);
-            // Reload items on change
             loadLists();
           })
           .subscribe();
