@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import { supabase } from './supabaseClient';
 
 function App() {
   const [lists, setLists] = useState([]);
@@ -9,9 +10,81 @@ function App() {
   const [quantity, setQuantity] = useState('1');
   const [sortBy, setSortBy] = useState('unchecked');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Load from localStorage on mount
+  // Initialize and load data
   useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // First, try to load from Supabase
+        const { data: listsData, error: listsError } = await supabase
+          .from('lists')
+          .select('*');
+
+        if (listsError) {
+          console.error('Lists error:', listsError);
+          // Fall back to localStorage if Supabase fails
+          loadFromLocalStorage();
+          return;
+        }
+
+        if (listsData && listsData.length > 0) {
+          // Fetch items for each list
+          const listsWithItems = await Promise.all(
+            listsData.map(async (list) => {
+              const { data: itemsData } = await supabase
+                .from('items')
+                .select('*')
+                .eq('list_id', list.id);
+              return { ...list, items: itemsData || [] };
+            })
+          );
+          setLists(listsWithItems);
+          setCurrentListId(listsWithItems[0].id);
+        } else {
+          // No lists exist, create default one
+          const defaultList = {
+            id: 'costco',
+            name: 'Costco',
+            created_at: new Date().toISOString(),
+          };
+          
+          const { error: insertError } = await supabase
+            .from('lists')
+            .insert([defaultList]);
+
+          if (!insertError) {
+            setLists([{ ...defaultList, items: [] }]);
+            setCurrentListId(defaultList.id);
+          }
+        }
+
+        // Set up real-time subscriptions
+        const subscription = supabase
+          .channel('lists')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'lists' }, (payload) => {
+            console.log('List change:', payload);
+            // Reload lists on change
+            loadLists();
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, (payload) => {
+            console.log('Item change:', payload);
+            // Reload items on change
+            loadLists();
+          })
+          .subscribe();
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Initialization error:', err);
+        loadFromLocalStorage();
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  const loadFromLocalStorage = () => {
     const saved = localStorage.getItem('household-lists');
     if (saved) {
       try {
@@ -33,108 +106,177 @@ function App() {
       setCurrentListId(defaultList.id);
     }
     setLoading(false);
-  }, []);
+  };
 
-  // Save to localStorage when lists change
-  useEffect(() => {
-    if (!loading && lists.length > 0) {
-      localStorage.setItem('household-lists', JSON.stringify(lists));
+  const loadLists = async () => {
+    try {
+      const { data: listsData } = await supabase.from('lists').select('*');
+      if (listsData) {
+        const listsWithItems = await Promise.all(
+          listsData.map(async (list) => {
+            const { data: itemsData } = await supabase
+              .from('items')
+              .select('*')
+              .eq('list_id', list.id);
+            return { ...list, items: itemsData || [] };
+          })
+        );
+        setLists(listsWithItems);
+      }
+    } catch (err) {
+      console.error('Error loading lists:', err);
     }
-  }, [lists, loading]);
+  };
 
   const currentList = lists.find((l) => l.id === currentListId);
   const items = currentList?.items || [];
 
-  const handleAddItem = (e) => {
+  const handleAddItem = async (e) => {
     e.preventDefault();
-    
-    if (!input.trim()) {
-      console.warn('Input is empty');
-      return;
-    }
-
-    if (!currentListId) {
-      console.error('No current list selected');
-      return;
-    }
+    if (!input.trim() || !currentListId) return;
 
     const newItem = {
       id: Date.now().toString(),
+      list_id: currentListId,
       name: input.trim(),
       quantity: quantity || '1',
       checked: false,
     };
 
-    console.log('Adding item:', newItem);
+    try {
+      const { error: insertError } = await supabase
+        .from('items')
+        .insert([newItem]);
 
-    const updatedLists = lists.map((list) => {
-      if (list.id === currentListId) {
-        const updated = {
-          ...list,
-          items: [...(list.items || []), newItem],
-        };
-        console.log('Updated list:', updated);
-        return updated;
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        setError('Failed to add item');
+        return;
       }
-      return list;
-    });
 
-    console.log('Updated lists:', updatedLists);
-    setLists(updatedLists);
-    setInput('');
-    setQuantity('1');
+      // Update local state
+      setLists(
+        lists.map((list) =>
+          list.id === currentListId
+            ? { ...list, items: [...list.items, newItem] }
+            : list
+        )
+      );
+      setInput('');
+      setQuantity('1');
+    } catch (err) {
+      console.error('Error adding item:', err);
+      setError('Failed to add item');
+    }
   };
 
-  const handleToggleItem = (itemId) => {
-    const updatedLists = lists.map((list) => {
-      if (list.id === currentListId) {
-        return {
-          ...list,
-          items: list.items.map((item) =>
-            item.id === itemId ? { ...item, checked: !item.checked } : item
-          ),
-        };
+  const handleToggleItem = async (itemId) => {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
+
+    try {
+      const { error: updateError } = await supabase
+        .from('items')
+        .update({ checked: !item.checked })
+        .eq('id', itemId);
+
+      if (updateError) {
+        console.error('Update error:', updateError);
+        return;
       }
-      return list;
-    });
-    setLists(updatedLists);
+
+      setLists(
+        lists.map((list) =>
+          list.id === currentListId
+            ? {
+                ...list,
+                items: list.items.map((i) =>
+                  i.id === itemId ? { ...i, checked: !i.checked } : i
+                ),
+              }
+            : list
+        )
+      );
+    } catch (err) {
+      console.error('Error toggling item:', err);
+    }
   };
 
-  const handleDeleteItem = (itemId) => {
-    const updatedLists = lists.map((list) => {
-      if (list.id === currentListId) {
-        return {
-          ...list,
-          items: list.items.filter((item) => item.id !== itemId),
-        };
+  const handleDeleteItem = async (itemId) => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', itemId);
+
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        return;
       }
-      return list;
-    });
-    setLists(updatedLists);
+
+      setLists(
+        lists.map((list) =>
+          list.id === currentListId
+            ? { ...list, items: list.items.filter((i) => i.id !== itemId) }
+            : list
+        )
+      );
+    } catch (err) {
+      console.error('Error deleting item:', err);
+    }
   };
 
-  const handleCreateList = (e) => {
+  const handleCreateList = async (e) => {
     e.preventDefault();
     if (!newListName.trim()) return;
 
     const newList = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: newListName,
-      items: [],
+      id: Date.now().toString(),
+      name: newListName.trim(),
+      created_at: new Date().toISOString(),
     };
 
-    setLists([...lists, newList]);
-    setCurrentListId(newList.id);
-    setNewListName('');
+    try {
+      const { error: insertError } = await supabase
+        .from('lists')
+        .insert([newList]);
+
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        setError('Failed to create list');
+        return;
+      }
+
+      setLists([...lists, { ...newList, items: [] }]);
+      setCurrentListId(newList.id);
+      setNewListName('');
+    } catch (err) {
+      console.error('Error creating list:', err);
+      setError('Failed to create list');
+    }
   };
 
-  const handleDeleteList = (listId) => {
+  const handleDeleteList = async (listId) => {
     if (!window.confirm('Delete this list?')) return;
 
-    const filtered = lists.filter((l) => l.id !== listId);
-    setLists(filtered);
-    if (filtered.length > 0) {
-      setCurrentListId(filtered[0].id);
+    try {
+      const { error: deleteError } = await supabase
+        .from('lists')
+        .delete()
+        .eq('id', listId);
+
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        return;
+      }
+
+      const filtered = lists.filter((l) => l.id !== listId);
+      setLists(filtered);
+      if (filtered.length > 0) {
+        setCurrentListId(filtered[0].id);
+      }
+    } catch (err) {
+      console.error('Error deleting list:', err);
     }
   };
 
@@ -166,6 +308,8 @@ function App() {
         <h1>Household Lists</h1>
         <p className="subtitle">Organize your shopping and tasks</p>
       </header>
+
+      {error && <div className="error-banner">{error}</div>}
 
       <main className="main">
         <div className="list-manager">
